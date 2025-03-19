@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
+import { AuthContext } from "../context/AuthContext"; // Import the AuthContext to access the user
 
 interface NavItem {
   label: string;
@@ -10,13 +11,17 @@ const mainNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard" },
 ];
 
-const authNavItems: NavItem[] = [
-  { label: "Sign In", href: "/signin" },
-  { label: "Sign Up", href: "/signup" },
-];
-
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { user } = useContext(AuthContext); // Get user from context to check if the user is logged in
+
+  // Only display the "Sign In" and "Sign Up" if the user is not logged in
+  const authNavItems: NavItem[] = user
+    ? [] // If the user is logged in, hide the auth links
+    : [
+        { label: "Sign In", href: "/signin" },
+        { label: "Sign Up", href: "/signup" },
+      ];
 
   return (
     <nav className="bg-white shadow">

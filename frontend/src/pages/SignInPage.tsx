@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState,useContext  } from "react";
 import Button from "../components/Button";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "../services/authService";
+import { AuthContext } from "../context/AuthContext"
 const SignIn = () => {
   const [formData, setFormData] = useState({
     email: "",
@@ -9,7 +10,8 @@ const SignIn = () => {
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const navigate = useNavigate();
-  
+
+  const { login } = useContext(AuthContext);
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -24,17 +26,23 @@ const SignIn = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async(e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      try {
-        await loginUser(formData.email, formData.password);
+    if (!validateForm()) return;
+  
+    try {
+      const response = await loginUser(formData.email, formData.password);
+      
+      console.log(response);
+      const token = response.data.accessToken;
+      if (token) {
+        login(token);
         navigate("/dashboard");
-        }
-        catch (error) {
-        console.error("Login failed", error);
-        setErrors({ general: "Failed to login. Please try again." });
-        }
+      } else {
+        setErrors({ general: "Invalid login credentials" });
+      }
+    } catch {
+      setErrors({ general: "An error occurred. Please try again." });
     }
   };
 
@@ -42,6 +50,7 @@ const SignIn = () => {
     <div className="flex justify-center items-center h-screen bg-gray-100">
       <div className="bg-white p-8 rounded-xl shadow-md w-96">
         <h2 className="text-2xl font-semibold text-center mb-6">Sign In</h2>
+        {errors.general && <p className="text-red-500 text-center">{errors.general}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <input

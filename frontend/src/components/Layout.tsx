@@ -1,25 +1,20 @@
-import Sidebar from "./SideBar";
-import Navbar from "./Navbar";
-import { ReactNode } from "react";
+import { Navigate, Outlet } from "react-router-dom";
+import Sidebar from "../components/SideBar";
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
 
-interface LayoutProps {
-  children: ReactNode;
-}
+const Layout = () => {
+  const { user } = useContext(AuthContext);
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   return (
     <div className="flex h-screen">
-      {/* Sidebar */}
       <Sidebar />
-      
-      <div className="flex flex-col flex-1">
-        {/* Navbar */}
-        <Navbar />
-        
-        {/* Main Content */}
-        <main className="flex-1 p-6 bg-gray-100 overflow-y-auto">
-          {children}
-        </main>
+      <div className="flex-1 p-6 bg-gray-100 overflow-auto">
+        <Outlet />
       </div>
     </div>
   );

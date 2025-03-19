@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
-      await axios.post("http://localhost:3000/api/auth/logout", {}, { withCredentials: true });
+      await axios.post("http://localhost:5000/api/auth/logout", {}, { withCredentials: true });
     } catch (error) {
       console.error("Logout failed:", error);
     }

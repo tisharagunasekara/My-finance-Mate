@@ -19,8 +19,8 @@ const Navbar: React.FC = () => {
   const authNavItems: NavItem[] = user
     ? [] // If the user is logged in, hide the auth links
     : [
-        { label: "Sign In", href: "/signin" },
-        { label: "Sign Up", href: "/signup" },
+        { label: "Sign In", href: "/login" },
+        { label: "Sign Up", href: "/register" },
       ];
 
   return (

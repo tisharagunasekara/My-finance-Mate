@@ -4,7 +4,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/DashbordPage";
 import Transaction from "./pages/TransactionPage";
 import Budgets from "./pages/BudgetsPage";
-import Goals from "./pages/FianaceGoalsPage";
+import Goals from "./pages/FinancialGoalsPage"; // Fix typo in import path
 import Login from "./pages/SignInPage";
 import Register from "./pages/SignUpPage";
 import Home from "./pages/HomePage";

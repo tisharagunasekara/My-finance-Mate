@@ -1,4 +1,4 @@
-import { FaTachometerAlt, FaExchangeAlt, FaChartPie, FaBullseye, FaSignOutAlt, FaSignInAlt, FaUserPlus } from "react-icons/fa";
+import { FaTachometerAlt, FaExchangeAlt, FaChartPie, FaBullseye, FaSignOutAlt, FaSignInAlt, FaUserPlus, FaMicrophone, FaRobot } from "react-icons/fa";
 import { JSX } from "react";
 import { NavLink } from "react-router-dom";
 import { useContext } from "react";
@@ -19,6 +19,8 @@ const Sidebar = () => {
     { name: "Transaction", path: "/transaction", icon: <FaExchangeAlt /> },
     { name: "Budgets", path: "/budgets", icon: <FaChartPie /> },
     { name: "Financial Goals", path: "/goals", icon: <FaBullseye /> },
+    { name: "Voice Command", path: "/voice-enable", icon: <FaMicrophone /> },
+    { name: "Automated Budget Plan", path: "/auto-budget", icon: <FaRobot /> },
     { name: "Logout", path: "/", icon: <FaSignOutAlt />, action: logout },
   ];
 

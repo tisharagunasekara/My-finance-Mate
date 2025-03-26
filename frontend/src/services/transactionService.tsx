@@ -11,7 +11,7 @@ interface TransactionData {
 export const saveTransaction = async (user: string, data: TransactionData) => {
   console.log('Saving transaction:', data);
   try {
-    const response = await axios.post("http://localhost:5000/api/transactions", {
+    const response = await axios.post("http://localhost:5001/api/transactions", {
       userId:user,    // user will be sent as part of the body
       ...data, // spread the rest of the transaction data into the body
     });
@@ -32,7 +32,7 @@ export const saveTransaction = async (user: string, data: TransactionData) => {
 
 export const getTransactionsByUserId = async (userId: string) => {
   try {
-    const response = await axios.get(`http://localhost:5000/api/transactions/${userId}`);
+    const response = await axios.get(`http://localhost:5001/api/transactions/${userId}`);
     return response.data; // Returns all transactions for the user
   } catch (error) {
     console.error(error);
@@ -43,7 +43,7 @@ export const getTransactionsByUserId = async (userId: string) => {
 };
 export const deleteTransactionById = async (transactionId: string) => {
   try {
-    const response = await axios.delete(`http://localhost:5000/api/transactions/${transactionId}`);
+    const response = await axios.delete(`http://localhost:5001/api/transactions/${transactionId}`);
     return response.data; // Return the deletion result (optional)
   } catch (error) {
     console.error(error);

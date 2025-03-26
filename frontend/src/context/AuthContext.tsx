@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, ReactNode } from "react";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode"; // Assuming you are using the jwt-decode library
+import { logoutUser } from "../services/authService";
 
 interface DecodedToken {
   userId: string;
@@ -57,7 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
-      await axios.post("http://localhost:5000/api/auth/logout", {}, { withCredentials: true });
+      await logoutUser(); // Use the service function instead of direct axios call
     } catch (error) {
       console.error("Logout failed:", error);
     }

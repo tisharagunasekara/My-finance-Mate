@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, SetStateAction } from 'react';
 import { 
   PlusCircleIcon, 
   CurrencyDollarIcon, 
   ChartBarIcon, 
   ExclamationCircleIcon 
 } from '@heroicons/react/24/outline';
+import BudgetModal from '../components/Model/BudgetsModel'; // Import BudgetModal
+import { Dialog } from '@headlessui/react'; // Optional for confirmation dialog
 
 // Sample budget data - replace with actual data fetching
 const initialBudgets = [
@@ -19,11 +21,14 @@ const Budgets = () => {
   const [newBudget, setNewBudget] = useState({ name: '', allocated: '', category: 'Essentials' });
   const [totalAllocated, setTotalAllocated] = useState(0);
   const [totalSpent, setTotalSpent] = useState(0);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedBudget, setSelectedBudget] = useState<{ id: number; name: string; allocated: number; spent: number; category: string } | null>(null);
   
   useEffect(() => {
-    // Calculate totals
-    const allocated = budgets.reduce((sum, budget) => sum + budget.allocated, 0);
-    const spent = budgets.reduce((sum, budget) => sum + budget.spent, 0);
+    // Calculate totals and ensure they are numbers
+    const allocated = budgets.reduce((sum, budget) => sum + (Number(budget.allocated) || 0), 0);
+    const spent = budgets.reduce((sum, budget) => sum + (Number(budget.spent) || 0), 0);
     setTotalAllocated(allocated);
     setTotalSpent(spent);
   }, [budgets]);
@@ -40,13 +45,39 @@ const Budgets = () => {
     const newBudgetItem = {
       id: Date.now(),
       name: newBudget.name,
-      allocated: parseFloat(String(newBudget.allocated)),
-      spent: 0,
+      allocated: parseFloat(String(newBudget.allocated)) || 0, // Ensure allocated is a number
+      spent: 0, // Default spent to 0
       category: newBudget.category
     };
     
     setBudgets((prev) => [...prev, newBudgetItem]);
     setNewBudget({ name: '', allocated: '', category: 'Essentials' });
+  };
+
+  const handleEdit = (budget: { id: number; name: string; allocated: number; spent: number; category: string }) => {
+      setSelectedBudget(budget);
+      setIsEditModalOpen(true);
+  };
+  
+  const handleDelete = (budget: { id: number; name: string; allocated: number; spent: number; category: string }) => {
+      setSelectedBudget(budget);
+      setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedBudget) {
+      setBudgets((prev) => prev.filter((b) => b.id !== selectedBudget.id));
+    }
+    setIsDeleteDialogOpen(false);
+    setSelectedBudget(null);
+  };
+
+  const saveEditedBudget = (updatedBudget: { id: number; name: string; allocated: number; spent: number; category: string }) => {
+    setBudgets((prev) =>
+      prev.map((b) => (b.id === updatedBudget.id ? updatedBudget : b))
+    );
+    setIsEditModalOpen(false);
+    setSelectedBudget(null);
   };
   
   return (
@@ -62,7 +93,7 @@ const Budgets = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Total Budget</p>
-              <p className="text-2xl font-bold text-gray-800">${totalAllocated.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-gray-800">${Number(totalAllocated).toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -74,7 +105,7 @@ const Budgets = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Total Spent</p>
-              <p className="text-2xl font-bold text-gray-800">${totalSpent.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-gray-800">${Number(totalSpent).toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -86,7 +117,7 @@ const Budgets = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Remaining</p>
-              <p className="text-2xl font-bold text-gray-800">${(totalAllocated - totalSpent).toFixed(2)}</p>
+              <p className="text-2xl font-bold text-gray-800">${(Number(totalAllocated) - Number(totalSpent)).toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -185,15 +216,19 @@ const Budgets = () => {
             ) : (
               <div className="space-y-6">
                 {budgets.map((budget) => {
-                  const percentage = (budget.spent / budget.allocated) * 100;
-                  let progressColor = "bg-blue-500";
-                  
+                  // Ensure `spent` is a number
+                  const spent = typeof budget.spent === 'number' ? budget.spent : 0;
+                  const allocated = typeof budget.allocated === 'number' ? budget.allocated : 0;
+
+                  const percentage = allocated > 0 ? (spent / allocated) * 100 : 0; // Avoid division by zero
+                  let progressColor = "bg-blue-500"; // Default color
+
                   if (percentage >= 90) {
-                    progressColor = "bg-red-500";
+                    progressColor = "bg-red-500"; // Overspent
                   } else if (percentage >= 70) {
-                    progressColor = "bg-yellow-500";
+                    progressColor = "bg-yellow-500"; // Caution
                   }
-                  
+
                   return (
                     <div key={budget.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex justify-between mb-1">
@@ -205,7 +240,7 @@ const Budgets = () => {
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-gray-500">
-                            ${budget.spent.toFixed(2)} of ${budget.allocated.toFixed(2)}
+                            ${spent.toFixed(2)} of ${allocated.toFixed(2)}
                           </p>
                           <p className="text-xs text-gray-500">
                             {percentage.toFixed(1)}% used
@@ -213,10 +248,24 @@ const Budgets = () => {
                         </div>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                        <div 
-                          className={`${progressColor} h-2.5 rounded-full`} 
+                        <div
+                          className={`${progressColor} h-2.5 rounded-full`}
                           style={{ width: `${Math.min(100, percentage)}%` }}
                         ></div>
+                      </div>
+                      <div className="flex justify-end gap-2 mt-4">
+                        <button
+                          className="text-blue-500 hover:text-blue-700"
+                          onClick={() => handleEdit(budget)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => handleDelete(budget)}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                   );
@@ -226,9 +275,63 @@ const Budgets = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {isEditModalOpen && (
+        <BudgetModal
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={(data) => {
+            const updatedBudget = {
+              id: selectedBudget?.id || 0,
+              name: data.budgetName || '',
+              allocated: data.totalAmount,
+              spent: data.spent,
+              category: data.category,
+            };
+            saveEditedBudget(updatedBudget);
+          }}
+          id={selectedBudget?.id}
+          name={selectedBudget?.name}
+          allocated={selectedBudget?.allocated}
+          spent={selectedBudget?.spent}
+          category={selectedBudget?.category}
+          totalAmount={selectedBudget?.allocated || 0}
+          currentAmount={selectedBudget?.spent || 0}
+          deadline={new Date().toISOString()} // Replace with actual deadline if available
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {isDeleteDialogOpen && (
+        <Dialog
+          open={isDeleteDialogOpen}
+          onClose={() => setIsDeleteDialogOpen(false)}
+          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+        >
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-lg font-semibold mb-4">Confirm Deletion</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete the budget "{selectedBudget?.name}"?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                onClick={() => setIsDeleteDialogOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                onClick={confirmDelete}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 };
 
 export default Budgets;
-

@@ -22,5 +22,6 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use('/api', transactionRoutes);
 app.use('/api', goalRoutes);
+app.use('/api', budgetRoutes); // Added budget routes
 
 app.listen(process.env.PORT, () => console.log(process.env.PORT));

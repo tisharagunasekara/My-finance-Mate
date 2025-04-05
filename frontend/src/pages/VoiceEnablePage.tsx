@@ -5,9 +5,16 @@ import { useAuth } from '../hook/useAuth';
 import { saveTransaction } from '../services/transactionService';
 import { formatCurrency, getSriLankaDate } from '../utils/formatters';
 
+/**
+ * VoiceEnablePage - A component that allows users to create transactions using voice commands
+ * Uses the Web Speech API to convert speech to text and extract transaction details
+ */
 const VoiceEnablePage = () => {
+  // State for tracking microphone and recognition status
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  
+  // State for storing extracted transaction data from voice input
   const [recognizedData, setRecognizedData] = useState<{
     type?: string;
     category?: string;
@@ -15,30 +22,41 @@ const VoiceEnablePage = () => {
     date?: string;
     notes?: string;
   }>({});
+  
+  // State for user feedback messages
   const [message, setMessage] = useState('');
   const { user } = useAuth();
   
   // Use ref to persist the recognition object between renders
+  // This prevents recreation of the speech recognition instance on every render
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   
-  // Check if browser supports SpeechRecognition
+  // Initialize speech recognition on component mount
   useEffect(() => {
+    // Check browser compatibility - try standard API first, then webkit prefix
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
     if (SpeechRecognition) {
+      // Browser supports speech recognition
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
       
+      // Configure recognition settings
+      recognitionRef.current.continuous = true;  // Don't stop after first result
+      recognitionRef.current.interimResults = true;  // Show results as they're being processed
+      
+      // Event handlers for the recognition process
       recognitionRef.current.onstart = () => {
         setIsListening(true);
         setMessage('Listening...');
       };
       
       recognitionRef.current.onresult = (event) => {
+        // Get the latest transcript from the recognition results
         const current = event.resultIndex;
         const transcriptText = event.results[current][0].transcript;
         setTranscript(transcriptText);
+        
+        // Process the transcript to extract transaction details
         processVoiceCommand(transcriptText);
       };
       
@@ -53,9 +71,11 @@ const VoiceEnablePage = () => {
         setMessage('Listening stopped');
       };
     } else {
+      // Browser does not support speech recognition
       setMessage('Speech recognition is not supported in this browser');
     }
     
+    // Cleanup function to stop recognition when component unmounts
     return () => {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
@@ -63,6 +83,10 @@ const VoiceEnablePage = () => {
     };
   }, []);
   
+  /**
+   * Toggle the speech recognition on/off
+   * Handles starting and stopping the microphone capture
+   */
   const toggleListening = () => {
     if (!recognitionRef.current) {
       setMessage('Speech recognition not available');
@@ -70,17 +94,17 @@ const VoiceEnablePage = () => {
     }
     
     if (isListening) {
-      // Explicitly stop the recognition
+      // Currently listening, so stop
       recognitionRef.current.stop();
       setIsListening(false);
       setMessage('Microphone stopped');
     } else {
-      // Clear previous data before starting
+      // Clear previous data before starting new session
       setTranscript('');
       setRecognizedData({});
       setMessage('Starting microphone...');
       
-      // Start recognition with a small delay to avoid any potential issues
+      // Start recognition with a small delay to avoid potential race conditions
       setTimeout(() => {
         try {
           recognitionRef.current?.start();
@@ -92,10 +116,16 @@ const VoiceEnablePage = () => {
     }
   };
   
+  /**
+   * Process the voice command to extract transaction details
+   * Uses pattern matching and keyword detection to identify transaction properties
+   * @param command - The transcript text to analyze
+   */
   const processVoiceCommand = (command: string) => {
     const lowerCommand = command.toLowerCase();
     
     // Extract transaction type with improved phrase detection
+    // Look for keywords that indicate income or expense
     if (lowerCommand.includes('income') || 
         lowerCommand.includes('earning') || 
         lowerCommand.includes('received') || 
@@ -114,7 +144,7 @@ const VoiceEnablePage = () => {
       setRecognizedData(prev => ({ ...prev, type: 'expense' }));
     }
     
-    // Extract categories with expanded category list
+    // Define common spending and income categories
     const categories = [
       'groceries', 'rent', 'salary', 'food', 'transportation', 
       'entertainment', 'utilities', 'healthcare', 'education', 
@@ -123,15 +153,15 @@ const VoiceEnablePage = () => {
       'gas', 'maintenance', 'repair', 'gift', 'donation'
     ];
     
+    // Check if any category is mentioned in the transcript
     categories.forEach(category => {
       if (lowerCommand.includes(category)) {
         setRecognizedData(prev => ({ ...prev, category }));
       }
     });
     
-    // Extract amount with improved regex pattern
-    // Look for currency symbols ($, USD) followed by numbers OR
-    // Look for number followed by the word "dollars"/"USD"
+    // Extract amount using regex pattern
+    // Handles various formats like $50, 50 dollars, 50 USD
     const amountPattern = /(\$|USD\.?|USD)?\s?(\d+(\.\d{1,2})?)\s?(dollars|USD)?/i;
     const amountMatch = lowerCommand.match(amountPattern);
     
@@ -139,8 +169,10 @@ const VoiceEnablePage = () => {
       setRecognizedData(prev => ({ ...prev, amount: parseFloat(amountMatch[2]) }));
     }
     
-    // Extract date - check if "yesterday", "today", "tomorrow" or specific date is mentioned
+    // Extract date - check for relative dates (yesterday, today)
+    // or default to current date in Sri Lanka timezone
     if (lowerCommand.includes('yesterday')) {
+      // Calculate yesterday's date in Sri Lanka timezone
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       
@@ -165,7 +197,7 @@ const VoiceEnablePage = () => {
       setRecognizedData(prev => ({ ...prev, date: slDate }));
     }
     
-    // Extract notes - look for "notes" or "description" followed by text
+    // Extract notes - look for specific keywords followed by text
     const notesPattern = /(note|notes|description|comment)s?:?\s+([^$.]+)/i;
     const notesMatch = lowerCommand.match(notesPattern);
     
@@ -174,13 +206,19 @@ const VoiceEnablePage = () => {
     }
   };
   
+  /**
+   * Save the extracted transaction data to the database
+   * Validates the data before submitting
+   */
   const handleSaveTransaction = async () => {
+    // Verify that we have the minimum required data
     if (!user || !recognizedData.type || !recognizedData.category || !recognizedData.amount) {
       setMessage('Incomplete transaction data. Please try again.');
       return;
     }
     
     try {
+      // Submit transaction to the server
       await saveTransaction(user, {
         type: recognizedData.type,
         category: recognizedData.category,
@@ -189,6 +227,7 @@ const VoiceEnablePage = () => {
         notes: recognizedData.notes || `Added via voice command: ${transcript}`
       });
       
+      // Success message and reset state
       setMessage('Transaction saved successfully!');
       setTranscript('');
       setRecognizedData({});
@@ -198,6 +237,7 @@ const VoiceEnablePage = () => {
     }
   };
 
+  // Component UI rendering
   return (
     <div className="container mx-auto p-8">
       <h1 className="text-3xl font-bold mb-6">Voice Command</h1>

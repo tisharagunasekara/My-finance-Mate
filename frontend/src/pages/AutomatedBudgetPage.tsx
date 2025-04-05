@@ -7,6 +7,7 @@ import { COLORS } from '../dummuData/sampleData';
 import Button from '../components/Button';
 
 // Type definitions for the component
+// Structure for a single transaction
 interface Transaction {
   _id: string;
   userId: string;

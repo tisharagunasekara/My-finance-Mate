@@ -57,8 +57,8 @@ const AutomatedBudgetPage = () => {
         
         // Calculate total income
         const totalIncome = data
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + t.amount, 0);
+          .filter((t: Transaction) => t.type === 'income')
+          .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
         setIncome(totalIncome);
         
       } catch (err) {

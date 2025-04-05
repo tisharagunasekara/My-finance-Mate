@@ -28,16 +28,16 @@ export const columns = [
 
 
 export const budgets = [
-  { id: 1, userId: "649c75e1f7f8d8b3a9e7d14c", category: "Groceries", limit: 500, startDate: "2025-03-01", endDate: "2025-03-31" },
-  { id: 2, userId: "649c75e1f7f8d8b3a9e7d14c", category: "Entertainment", limit: 200, startDate: "2025-03-01", endDate: "2025-03-31" },
-  { id: 3, userId: "649c75e1f7f8d8b3a9e7d15d", category: "Transportation", limit: 150, startDate: "2025-03-01", endDate: "2025-03-31" },
-  { id: 4, userId: "649c75e1f7f8d8b3a9e7d16f", category: "Dining Out", limit: 300, startDate: "2025-03-01", endDate: "2025-03-31" },
-  { id: 5, userId: "649c75e1f7f8d8b3a9e7d16f", category: "Shopping", limit: 600, startDate: "2025-03-01", endDate: "2025-03-31" },
-  { id: 6, userId: "649c75e1f7f8d8b3a9e7d17e", category: "Healthcare", limit: 400, startDate: "2025-03-01", endDate: "2025-03-31" },
-  { id: 7, userId: "649c75e1f7f8d8b3a9e7d17e", category: "Utilities", limit: 200, startDate: "2025-03-01", endDate: "2025-03-31" },
-  { id: 8, userId: "649c75e1f7f8d8b3a9e7d18d", category: "Subscriptions", limit: 150, startDate: "2025-03-01", endDate: "2025-03-31" },
-  { id: 9, userId: "649c75e1f7f8d8b3a9e7d18d", category: "Education", limit: 500, startDate: "2025-03-01", endDate: "2025-03-31" },
-  { id: 10, userId: "649c75e1f7f8d8b3a9e7d19b", category: "Miscellaneous", limit: 100, startDate: "2025-03-01", endDate: "2025-03-31" }
+  { id: 1, userId: "649c75e1f7f8d8b3a9e7d14c", category: "Groceries", limit: 500, spent: 320, percentageUsed: 64, startDate: "2025-03-01", endDate: "2025-03-31" },
+  { id: 2, userId: "649c75e1f7f8d8b3a9e7d14c", category: "Entertainment", limit: 200, spent: 150, percentageUsed: 75, startDate: "2025-03-01", endDate: "2025-03-31" },
+  { id: 3, userId: "649c75e1f7f8d8b3a9e7d15d", category: "Transportation", limit: 150, spent: 100, percentageUsed: 67, startDate: "2025-03-01", endDate: "2025-03-31" },
+  { id: 4, userId: "649c75e1f7f8d8b3a9e7d16f", category: "Dining Out", limit: 300, spent: 200, percentageUsed: 67, startDate: "2025-03-01", endDate: "2025-03-31" },
+  { id: 5, userId: "649c75e1f7f8d8b3a9e7d16f", category: "Shopping", limit: 600, spent: 400, percentageUsed: 67, startDate: "2025-03-01", endDate: "2025-03-31" },
+  { id: 6, userId: "649c75e1f7f8d8b3a9e7d17e", category: "Healthcare", limit: 400, spent: 250, percentageUsed: 63, startDate: "2025-03-01", endDate: "2025-03-31" },
+  { id: 7, userId: "649c75e1f7f8d8b3a9e7d17e", category: "Utilities", limit: 200, spent: 120, percentageUsed: 60, startDate: "2025-03-01", endDate: "2025-03-31" },
+  { id: 8, userId: "649c75e1f7f8d8b3a9e7d18d", category: "Subscriptions", limit: 150, spent: 90, percentageUsed: 60, startDate: "2025-03-01", endDate: "2025-03-31" },
+  { id: 9, userId: "649c75e1f7f8d8b3a9e7d18d", category: "Education", limit: 500, spent: 300, percentageUsed: 60, startDate: "2025-03-01", endDate: "2025-03-31" },
+  { id: 10, userId: "649c75e1f7f8d8b3a9e7d19b", category: "Miscellaneous", limit: 100, spent: 50, percentageUsed: 50, startDate: "2025-03-01", endDate: "2025-03-31" }
 ];
 
 

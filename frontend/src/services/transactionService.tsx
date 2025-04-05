@@ -38,9 +38,8 @@ export const getTransactionsByUserId = async (userId: string) => {
     console.error(error);
     throw new Error('Error fetching transactions');
   }
-
-  
 };
+
 export const deleteTransactionById = async (transactionId: string) => {
   try {
     const response = await axios.delete(`http://localhost:5001/api/transactions/${transactionId}`);
@@ -48,5 +47,19 @@ export const deleteTransactionById = async (transactionId: string) => {
   } catch (error) {
     console.error(error);
     throw new Error("Failed to delete transaction");
+  }
+};
+
+export const updateTransactionById = async (transactionId: string, data: Partial<TransactionData>) => {
+  try {
+    const response = await axios.put(`http://localhost:5001/api/transactions/${transactionId}`, data);
+    return response.data;
+  } catch (error) {
+    console.error(error);
+    if (axios.isAxiosError(error)) {
+      throw new Error('Axios error: ' + (error.response?.data || error.message));
+    } else {
+      throw new Error('Error updating transaction');
+    }
   }
 };

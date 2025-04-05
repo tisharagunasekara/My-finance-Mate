@@ -4,6 +4,7 @@ interface TotalCountTileProps {
   title: string;
   count: number;
   icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  className?: string;
 }
 
 const TotalCountTile: React.FC<TotalCountTileProps> = ({ title, count, icon: Icon }) => {

@@ -62,15 +62,6 @@
 
 ---
 
-## 📍 Team Members
-
-- **Tishara** – Transactions Module  
-- **Tharushi** – Budget Management  
-- **Gayantha** – Goals & Authentication  
-- **Kavindu** – Voice Commands & AI Budgeting  
-
----
-
 ## 📬 Contact
 
 If you have any questions or feedback, feel free to reach out to our team.

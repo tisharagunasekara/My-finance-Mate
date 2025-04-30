@@ -1,22 +1,30 @@
 import React from "react";
+import { IconType } from "react-icons";
 
-interface TotalCountTileProps {
+interface TileProps {
   title: string;
   count: number;
-  icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  icon: IconType;
   className?: string;
+  formatter?: (value: number) => string;
 }
 
-const TotalCountTile: React.FC<TotalCountTileProps> = ({ title, count, icon: Icon }) => {
+const Tile: React.FC<TileProps> = ({ title, count, icon: Icon, className, formatter }) => {
+  const displayValue = formatter ? formatter(count) : count.toString();
+  
   return (
-    <div className="bg-white shadow-lg rounded-2xl p-6 flex items-center space-x-4 w-60">
-      {Icon && <Icon className="w-12 h-12 text-blue-500" />}
-      <div>
-        <p className="text-gray-500 text-sm font-medium">{title}</p>
-        <h2 className="text-2xl font-bold text-gray-800">{count}</h2>
+    <div className={`p-6 ${className}`}>
+      <div className="flex justify-between items-center">
+        <div>
+          <p className="text-sm text-gray-500">{title}</p>
+          <p className="text-2xl font-bold mt-1">{displayValue}</p>
+        </div>
+        <div className="bg-gray-100 p-3 rounded-full">
+          <Icon className="h-6 w-6 text-gray-500" />
+        </div>
       </div>
     </div>
   );
 };
 
-export default TotalCountTile;
+export default Tile;

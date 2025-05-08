@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { FaMicrophone, FaMicrophoneSlash, FaInfoCircle } from 'react-icons/fa';
+import { FaMicrophone, FaMicrophoneSlash, FaInfoCircle, FaCheckCircle, FaTimes } from 'react-icons/fa';
 import Button from '../components/Button';
 import { useAuth } from '../hook/useAuth';
 import { saveTransaction } from '../services/transactionService';
 import { formatCurrency, getSriLankaDate } from '../utils/formatters';
+import { toast } from 'react-toastify';
 
 /**
  * VoiceEnablePage - A component that allows users to create transactions using voice commands
@@ -21,7 +22,11 @@ const VoiceEnablePage = () => {
     amount?: number;
     date?: string;
     notes?: string;
+    description?: string;
   }>({});
+
+  // State for transaction confirmation
+  const [isConfirming, setIsConfirming] = useState(false);
   
   // State for user feedback messages
   const [message, setMessage] = useState('');
@@ -102,6 +107,7 @@ const VoiceEnablePage = () => {
       // Clear previous data before starting new session
       setTranscript('');
       setRecognizedData({});
+      setIsConfirming(false);
       setMessage('Starting microphone...');
       
       // Start recognition with a small delay to avoid potential race conditions
@@ -204,6 +210,30 @@ const VoiceEnablePage = () => {
     if (notesMatch && notesMatch[2]) {
       setRecognizedData(prev => ({ ...prev, notes: notesMatch[2].trim() }));
     }
+    
+    // Set description using category or summary of command (required field for DB)
+    const shortCommand = lowerCommand.substring(0, 50).trim();
+    setRecognizedData(prev => {
+      const category = prev.category ? prev.category : 'transaction';
+      return { 
+        ...prev, 
+        description: prev.notes ? prev.notes.substring(0, 50) : `Voice ${prev.type || 'transaction'} for ${category}`
+      };
+    });
+  };
+
+  /**
+   * Prepare transaction data for confirmation before saving
+   */
+  const handlePrepareTransaction = () => {
+    // Verify that we have the minimum required data
+    if (!user || !recognizedData.type || !recognizedData.category || !recognizedData.amount) {
+      setMessage('Incomplete transaction data. Please try again.');
+      return;
+    }
+
+    // Enter confirmation mode
+    setIsConfirming(true);
   };
   
   /**
@@ -211,30 +241,42 @@ const VoiceEnablePage = () => {
    * Validates the data before submitting
    */
   const handleSaveTransaction = async () => {
-    // Verify that we have the minimum required data
+    // Verify that we have the minimum required data again (just to be safe)
     if (!user || !recognizedData.type || !recognizedData.category || !recognizedData.amount) {
       setMessage('Incomplete transaction data. Please try again.');
       return;
     }
     
     try {
-      // Submit transaction to the server
-      await saveTransaction(user, {
+      // Ensure all required fields are present
+      const transactionData = {
         type: recognizedData.type,
         category: recognizedData.category,
         amount: recognizedData.amount,
         date: recognizedData.date || getSriLankaDate(),
+        description: recognizedData.description || `Voice ${recognizedData.type} for ${recognizedData.category}`,
         notes: recognizedData.notes || `Added via voice command: ${transcript}`
-      });
+      };
+
+      // Submit transaction to the server
+      await saveTransaction(user, transactionData);
       
       // Success message and reset state
+      toast.success('Transaction saved successfully!');
       setMessage('Transaction saved successfully!');
       setTranscript('');
       setRecognizedData({});
+      setIsConfirming(false);
     } catch (error) {
       console.error('Error saving transaction:', error);
+      toast.error('Failed to save transaction. Please try again.');
       setMessage('Failed to save transaction. Please try again.');
     }
+  };
+
+  // User canceled the transaction
+  const handleCancelTransaction = () => {
+    setIsConfirming(false);
   };
 
   // Component UI rendering
@@ -258,7 +300,7 @@ const VoiceEnablePage = () => {
         </p>
         
         {message && (
-          <div className={`text-center p-2 rounded mb-4 ${message.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+          <div className={`text-center p-2 rounded mb-4 ${message.includes('Error') || message.includes('Failed') ? 'bg-red-100 text-red-700' : message.includes('success') ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
             {message}
           </div>
         )}
@@ -288,7 +330,7 @@ const VoiceEnablePage = () => {
         </div>
       )}
       
-      {Object.keys(recognizedData).length > 0 && (
+      {Object.keys(recognizedData).length > 0 && !isConfirming && (
         <div className="bg-white p-6 rounded-lg shadow-lg mb-8">
           <h2 className="text-xl font-semibold mb-4">Extracted Transaction:</h2>
           <div className="grid grid-cols-2 gap-4">
@@ -334,12 +376,51 @@ const VoiceEnablePage = () => {
           
           <div className="mt-6 text-center">
             <Button
-              text="Save Transaction"
-              onClick={handleSaveTransaction}
+              text="Confirm Transaction"
+              onClick={handlePrepareTransaction}
               disabled={!recognizedData.type || !recognizedData.category || !recognizedData.amount}
-              className="px-8 py-3"
+              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white"
             />
           </div>
+        </div>
+      )}
+
+      {/* Confirmation Panel */}
+      {isConfirming && (
+        <div className="bg-white p-6 rounded-lg shadow-lg mb-8 border-2 border-blue-500">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-blue-800">Confirm Transaction</h2>
+            <div className="flex space-x-2">
+              <Button 
+                text="Cancel" 
+                onClick={handleCancelTransaction}
+                className="px-4 py-2 bg-gray-200 text-gray-800 hover:bg-gray-300"
+                icon={<FaTimes className="mr-1" />}
+              />
+              <Button 
+                text="Save to Database" 
+                onClick={handleSaveTransaction}
+                className="px-4 py-2 bg-green-600 text-white hover:bg-green-700"
+                icon={<FaCheckCircle className="mr-1" />}
+              />
+            </div>
+          </div>
+
+          <div className="bg-blue-50 p-4 rounded-lg mb-4">
+            <p className="font-medium text-blue-800 mb-2">The following transaction will be saved:</p>
+            <ul className="list-disc list-inside space-y-1 text-gray-700">
+              <li><span className="font-medium">Type:</span> {recognizedData.type}</li>
+              <li><span className="font-medium">Category:</span> {recognizedData.category}</li>
+              <li><span className="font-medium">Amount:</span> ${recognizedData.amount?.toFixed(2)}</li>
+              <li><span className="font-medium">Date:</span> {recognizedData.date}</li>
+              <li><span className="font-medium">Description:</span> {recognizedData.description}</li>
+              {recognizedData.notes && <li><span className="font-medium">Notes:</span> {recognizedData.notes}</li>}
+            </ul>
+          </div>
+
+          <p className="text-sm text-gray-500 italic">
+            Please review the transaction details above before saving to the database.
+          </p>
         </div>
       )}
       

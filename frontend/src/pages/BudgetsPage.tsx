@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { downloadBudgetReportPDF } from '../services/budgetReportService';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import { 
   PlusCircleIcon, 
   CurrencyDollarIcon, 
@@ -61,7 +64,23 @@ const Budgets = () => {
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
+  // Function to handle report generation
+  const handleGenerateReport = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/reports/budgets/${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch report data');
+      }
+      const reportData = await response.json();
+      await downloadBudgetReportPDF(reportData, true);
+      toast.success("Report generated successfully!");
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast.error("Failed to generate report");
+    }
+  };
+
   // Fetch budgets from API
   useEffect(() => {
     const fetchBudgets = async () => {
@@ -330,6 +349,12 @@ const Budgets = () => {
       <div className="bg-white rounded-2xl shadow-lg">
         <div className="border-b border-gray-200 px-8 py-5">
           <h2 className="text-2xl font-semibold text-gray-800">Your Budgets</h2>
+          <button
+            onClick={() => handleGenerateReport(user)}
+            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition"
+        >
+            Download Budget Report
+          </button>
         </div>
         <div className="overflow-hidden">
           <div className="p-8">

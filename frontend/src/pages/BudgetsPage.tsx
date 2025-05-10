@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { downloadBudgetReportPDF } from '../services/budgetReportService';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import { 
   PlusCircleIcon, 
   CurrencyDollarIcon, 
@@ -61,7 +64,41 @@ const Budgets = () => {
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredBudgets, setFilteredBudgets] = useState<Budget[]>([]);
+
+
+  // Function to handle report generation
+  const handleGenerateReport = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/reports/budgets/${userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch report data');
+      }
+      const reportData = await response.json();
+      await downloadBudgetReportPDF(reportData, true);
+      toast.success("Report generated successfully!");
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast.error("Failed to generate report");
+    }
+  };
+//filter results
+  useEffect(() => {
+    if (searchTerm.trim() === '') {
+      setFilteredBudgets(budgets);
+    } else {
+      const lower = searchTerm.toLowerCase();
+      const filtered = budgets.filter(
+        b =>
+          b.title?.toLowerCase().includes(lower) ||
+          b.category?.toLowerCase().includes(lower)
+      );
+      setFilteredBudgets(filtered);
+    }
+  }, [searchTerm, budgets]);
   
+
   // Fetch budgets from API
   useEffect(() => {
     const fetchBudgets = async () => {
@@ -330,6 +367,22 @@ const Budgets = () => {
       <div className="bg-white rounded-2xl shadow-lg">
         <div className="border-b border-gray-200 px-8 py-5">
           <h2 className="text-2xl font-semibold text-gray-800">Your Budgets</h2>
+          <div className="mt-4 mb-2">
+          <input
+              type="text"
+              placeholder="Search by name or category..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+               className="w-full md:w-1/2 px-4 py-2 rounded-lg border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          </div>
+
+          <button
+            onClick={() => handleGenerateReport(user)}
+            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition"
+        >
+            Download Budget Report
+          </button>
         </div>
         <div className="overflow-hidden">
           <div className="p-8">
@@ -343,7 +396,7 @@ const Budgets = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {budgets.map((budget) => {
+                {filteredBudgets.map((budget) => {
                   const spent = Number(budget.spent) || 0;
                   const allocated = Number(budget.amount) || 0;
                   const percentage = allocated > 0 ? (spent / allocated) * 100 : 0;

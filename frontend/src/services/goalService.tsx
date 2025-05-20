@@ -13,35 +13,56 @@ export interface GoalData {
   progressPercentage?: number;
 }
 
-// Create a new goal
+/**
+ * Create a new financial goal
+ */
 export const createGoal = async (userId: string, data: GoalData): Promise<GoalData> => {
   try {
-    // Ensure numeric values are properly passed as numbers
+    // Ensure numeric values are properly formatted as numbers
+    const targetAmount = Number(data.targetAmount);
+    const currentAmount = Number(data.currentAmount);
+    
+    // Validate status based on amounts
+    let status = data.status;
+    if (currentAmount >= targetAmount && targetAmount > 0) {
+      status = 'achieved';
+    } else if (status === 'achieved' && currentAmount < targetAmount) {
+      status = 'in progress';
+    }
+    
     const goalData = {
       userId,
       goalName: data.goalName,
-      targetAmount: Number(data.targetAmount),
-      currentAmount: Number(data.currentAmount),
+      targetAmount: targetAmount,
+      currentAmount: currentAmount,
       deadline: data.deadline,
-      status: data.status,
+      status: status,
       notes: data.notes
     };
     
     console.log('Creating goal with data:', goalData);
     const response = await axios.post(`${API_URL}/goals`, goalData);
-    return response.data;
+    
+    // Ensure returned data has proper numeric types
+    return {
+      ...response.data,
+      targetAmount: Number(response.data.targetAmount),
+      currentAmount: Number(response.data.currentAmount)
+    };
   } catch (error) {
     console.error('Error creating goal:', error);
     throw new Error('Error creating goal');
   }
 };
 
-// Get goals by user ID
+/**
+ * Get financial goals by user ID
+ */
 export const getGoalsByUserId = async (userId: string): Promise<GoalData[]> => {
   try {
     const response = await axios.get(`${API_URL}/goals/${userId}`);
     
-    // Ensure numeric values are properly parsed
+    // Ensure numeric values are properly formatted for each goal
     const goals = response.data.map((goal: any) => ({
       ...goal,
       targetAmount: Number(goal.targetAmount),
@@ -55,38 +76,51 @@ export const getGoalsByUserId = async (userId: string): Promise<GoalData[]> => {
   }
 };
 
-// Update an existing goal
+/**
+ * Update an existing financial goal
+ */
 export const updateGoal = async (goalId: string, data: GoalData): Promise<GoalData> => {
   try {
     // Remove _id from data to avoid MongoDB conflicts
-    const { _id, ...updateData } = data;
+    const { _id, progressPercentage, ...updateData } = data;
     
-    // Ensure numeric values are properly passed as numbers
+    // Ensure numeric values are properly formatted as numbers
+    const targetAmount = Number(updateData.targetAmount);
+    const currentAmount = Number(updateData.currentAmount);
+    
+    // Validate status based on amounts
+    let status = updateData.status;
+    if (currentAmount >= targetAmount && targetAmount > 0) {
+      status = 'achieved';
+    } else if (status === 'achieved' && currentAmount < targetAmount) {
+      status = 'in progress';
+    }
+    
     const goalData = {
       ...updateData,
-      targetAmount: parseFloat(String(updateData.targetAmount || 0)),
-      currentAmount: parseFloat(String(updateData.currentAmount || 0)),
+      targetAmount: targetAmount,
+      currentAmount: currentAmount,
+      status: status
     };
     
-    console.log('Updating goal API call with data:', goalData);
-    
+    console.log(`Updating goal ${goalId} with data:`, goalData);
     const response = await axios.put(`${API_URL}/goals/${goalId}`, goalData);
     
-    // Ensure the returned data also has properly formatted number values
-    const formattedResponse = {
+    // Ensure returned data has proper numeric types
+    return {
       ...response.data,
-      targetAmount: parseFloat(String(response.data.targetAmount || 0)),
-      currentAmount: parseFloat(String(response.data.currentAmount || 0)),
+      targetAmount: Number(response.data.targetAmount),
+      currentAmount: Number(response.data.currentAmount)
     };
-    
-    return formattedResponse;
   } catch (error) {
     console.error('Error updating goal:', error);
     throw new Error('Error updating goal');
   }
 };
 
-// Delete a goal
+/**
+ * Delete a financial goal
+ */
 export const deleteGoal = async (goalId: string): Promise<void> => {
   try {
     await axios.delete(`${API_URL}/goals/${goalId}`);
@@ -96,7 +130,9 @@ export const deleteGoal = async (goalId: string): Promise<void> => {
   }
 };
 
-// Get goals stats (for dashboard widgets)
+/**
+ * Get financial goals stats for dashboard
+ */
 export const getGoalsStats = async (userId: string): Promise<any> => {
   try {
     const goals = await getGoalsByUserId(userId);

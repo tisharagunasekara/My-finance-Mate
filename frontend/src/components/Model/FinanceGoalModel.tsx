@@ -23,6 +23,8 @@ const FinancialGoalModal = ({ onClose, onSave, initialData }: FinancialGoalModal
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
+    setValue,
   } = useForm<Goal>({
     defaultValues: {
       goalName: '',
@@ -33,6 +35,10 @@ const FinancialGoalModal = ({ onClose, onSave, initialData }: FinancialGoalModal
       notes: ''
     }
   });
+
+  // Watch the currentAmount and targetAmount for validation logic
+  const currentAmount = watch('currentAmount');
+  const targetAmount = watch('targetAmount');
 
   useEffect(() => {
     if (initialData) {
@@ -65,6 +71,18 @@ const FinancialGoalModal = ({ onClose, onSave, initialData }: FinancialGoalModal
       });
     }
   }, [initialData, reset]);
+
+  // Auto-update the status based on current and target amount
+  useEffect(() => {
+    // If current amount >= target amount, auto-set status to achieved
+    if (Number(currentAmount) >= Number(targetAmount) && Number(targetAmount) > 0) {
+      setValue('status', 'achieved');
+    } 
+    // If current amount < target amount and status is 'achieved', reset to 'in progress'
+    else if (watch('status') === 'achieved' && Number(currentAmount) < Number(targetAmount)) {
+      setValue('status', 'in progress');
+    }
+  }, [currentAmount, targetAmount, setValue, watch]);
 
   const onSubmit = (data: Goal) => {
     onSave(data); // Call parent function to save data
@@ -126,14 +144,30 @@ const FinancialGoalModal = ({ onClose, onSave, initialData }: FinancialGoalModal
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Status</label>
             <select
-              {...register("status", { required: "Status is required" })}
+              {...register("status", { 
+                required: "Status is required",
+                validate: {
+                  achievedValidation: value => {
+                    // Check if trying to set status to achieved but current < target
+                    if (value === 'achieved' && Number(currentAmount) < Number(targetAmount)) {
+                      return "Cannot mark as achieved when current amount is less than target amount";
+                    }
+                    return true;
+                  }
+                }
+              })}
               className="mt-1 p-2 w-full border rounded-lg"
+              disabled={Number(currentAmount) >= Number(targetAmount)} // Disable if goal is already achieved
             >
-              <option value="">Select</option>
               <option value="in progress">In Progress</option>
               <option value="achieved">Achieved</option>
             </select>
             {errors.status && <p className="text-red-500 text-sm">{errors.status.message}</p>}
+            {Number(currentAmount) >= Number(targetAmount) && (
+              <p className="text-green-600 text-sm mt-1">
+                Goal automatically marked as achieved because current amount meets or exceeds target
+              </p>
+            )}
           </div>
 
           {/* Notes */}

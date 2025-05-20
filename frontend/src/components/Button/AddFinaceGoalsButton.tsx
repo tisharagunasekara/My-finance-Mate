@@ -35,12 +35,14 @@ const AddFinancialGoalButton = () => {
         <FinancialGoalModal
           onClose={() => setIsOpen(false)}
           onSave={handleSave}
-          goalName=""
-          targetAmount={0}
-          currentAmount={0}
-          deadline=""
-          status="in progress"
-          notes=""
+          initialData={{
+            goalName: "",
+            targetAmount: 0,
+            currentAmount: 0,
+            deadline: new Date().toISOString().split('T')[0],
+            status: "in progress",
+            notes: ""
+          }}
         />
       )}
     </div>

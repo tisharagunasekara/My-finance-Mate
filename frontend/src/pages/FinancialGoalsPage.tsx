@@ -54,6 +54,7 @@ const FinancialGoals = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [stats, setStats] = useState<any>(null);
 
   // Fetch goals from API
   const fetchGoals = useCallback(async () => {
@@ -63,24 +64,27 @@ const FinancialGoals = () => {
     setError(null);
     
     try {
+      // Fetch goals
       const data = await getGoalsByUserId(user);
       
       // Calculate progress percentage for each goal
-      const goalsWithProgress = data.map(goal => {
-        const targetAmount = Number(goal.targetAmount);
-        const currentAmount = Number(goal.currentAmount);
-        const progressPercentage = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
-        
-        return {
-          ...goal,
-          targetAmount,
-          currentAmount,
-          progressPercentage
-        };
-      });
+      const goalsWithProgress = data.map(goal => ({
+        ...goal,
+        progressPercentage: goal.targetAmount > 0 
+          ? (goal.currentAmount / goal.targetAmount) * 100 
+          : 0
+      }));
       
       setGoals(goalsWithProgress);
       setFilteredGoals(goalsWithProgress);
+      
+      // Fetch stats
+      try {
+        const statsData = await getGoalsStats(user);
+        setStats(statsData);
+      } catch (statsError) {
+        console.error('Error fetching stats:', statsError);
+      }
     } catch (err) {
       console.error('Failed to fetch goals:', err);
       setError('Failed to fetch goals. Please try again.');
@@ -126,11 +130,23 @@ const FinancialGoals = () => {
     setLoading(true);
     try {
       await deleteGoal(goalId);
-      setGoals(goals.filter(goal => goal._id !== goalId));
-      toast.success('Goal successfully deleted');
+      
+      // Update local state
+      setGoals(prevGoals => prevGoals.filter(goal => goal._id !== goalId));
+      toast.success('Goal deleted successfully');
+      
+      // Refresh stats
+      if (user) {
+        try {
+          const statsData = await getGoalsStats(user);
+          setStats(statsData);
+        } catch (statsError) {
+          console.error('Error refreshing stats:', statsError);
+        }
+      }
     } catch (err) {
       console.error('Failed to delete goal:', err);
-      toast.error('Could not delete the goal');
+      toast.error('Failed to delete goal');
     } finally {
       setLoading(false);
     }
@@ -138,60 +154,99 @@ const FinancialGoals = () => {
 
   // Open edit modal with selected goal data
   const handleEdit = (goal: Goal) => {
-    // Ensure we pass proper number values for targetAmount and currentAmount
-    const preparedGoal = {
-      ...goal,
-      targetAmount: typeof goal.targetAmount === 'string' ? 
-        parseFloat(goal.targetAmount.replace(/[^0-9.-]+/g, '')) : 
-        Number(goal.targetAmount),
-      currentAmount: typeof goal.currentAmount === 'string' ? 
-        parseFloat(goal.currentAmount.replace(/[^0-9.-]+/g, '')) : 
-        Number(goal.currentAmount),
+    if (!goal._id) {
+      toast.error('Cannot edit goal: Missing ID');
+      return;
+    }
+    
+    // Create a clean copy of the goal with proper numeric types
+    const goalToEdit = {
+      _id: goal._id,
+      goalName: goal.goalName,
+      targetAmount: Number(goal.targetAmount.toString().replace(/[^0-9.]/g, '')),
+      currentAmount: Number(goal.currentAmount.toString().replace(/[^0-9.]/g, '')),
+      deadline: typeof goal.deadline === 'string' ? goal.deadline : new Date(goal.deadline).toISOString(),
+      status: goal.status,
+      notes: goal.notes || ''
     };
     
-    // Log the goal data being passed to the modal
-    console.log('Opening edit modal with goal data:', preparedGoal);
-    
-    setSelectedGoal(preparedGoal);
+    console.log('Editing goal:', goalToEdit);
+    setSelectedGoal(goalToEdit);
     setIsModalOpen(true);
   };
 
   // Handle saving goal data (create or update)
   const handleSave = async (data: Goal) => {
-    // Log the data received from the form
-    console.log('Received form data for save:', data);
-    
     try {
-      // Validate deadline is not in the past
+      // Additional validation for the deadline
       const selectedDate = new Date(data.deadline);
       const currentDate = new Date();
       currentDate.setHours(0, 0, 0, 0); // Reset time part for accurate date comparison
       
+      // Validate all required fields are provided
+      if (!data.goalName || !data.targetAmount || data.currentAmount === undefined || !data.deadline || !data.status) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+      
+      // Validate deadline is not in the past
       if (selectedDate < currentDate) {
         toast.error('Please select a future date for your goal deadline');
         return;
       }
       
+      // Validate amounts are numeric and reasonable
+      if (isNaN(Number(data.targetAmount)) || Number(data.targetAmount) <= 0) {
+        toast.error('Target amount must be a positive number');
+        return;
+      }
+      
+      if (isNaN(Number(data.currentAmount)) || Number(data.currentAmount) < 0) {
+        toast.error('Current amount must be a non-negative number');
+        return;
+      }
+      
+      // Ensure the status matches the achievement status
+      if (data.status === 'achieved' && Number(data.currentAmount) < Number(data.targetAmount)) {
+        toast.error('A goal cannot be marked as achieved when the current amount is less than the target');
+        return;
+      }
+      
+      // Max length validation for notes
+      if (data.notes && data.notes.length > 500) {
+        toast.error('Notes cannot exceed 500 characters');
+        return;
+      }
+      
       setLoading(true);
       
+      // Ensure numeric values are properly formatted
+      const goalData = {
+        ...data,
+        targetAmount: Number(data.targetAmount),
+        currentAmount: Number(data.currentAmount)
+      };
+
       if (selectedGoal && selectedGoal._id) {
         // Update existing goal
-        console.log('Updating goal:', selectedGoal._id, data);
-        const updatedGoal = await updateGoal(selectedGoal._id, data);
+        console.log('Updating goal:', selectedGoal._id, goalData);
+        const updatedGoal = await updateGoal(selectedGoal._id, goalData);
         
-        // Calculate progress percentage
-        const targetAmount = Number(updatedGoal.targetAmount);
-        const currentAmount = Number(updatedGoal.currentAmount);
-        const progressPercentage = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
-        
+        // Add progress percentage
+        const progressPercentage = updatedGoal.targetAmount > 0
+          ? (updatedGoal.currentAmount / updatedGoal.targetAmount) * 100
+          : 0;
+          
         const goalWithProgress = {
           ...updatedGoal,
-          targetAmount,
-          currentAmount,
           progressPercentage
         };
         
-        setGoals(goals.map(goal => goal._id === selectedGoal._id ? goalWithProgress : goal));
+        // Update goals state
+        setGoals(prevGoals => 
+          prevGoals.map(goal => goal._id === selectedGoal._id ? goalWithProgress : goal)
+        );
+        
         toast.success('Goal updated successfully');
       } else {
         // Create new goal
@@ -200,29 +255,46 @@ const FinancialGoals = () => {
           return;
         }
         
-        const newGoal = await createGoal(user, data);
+        console.log('Creating goal:', goalData);
+        const newGoal = await createGoal(user, goalData);
         
-        // Calculate progress percentage for new goal
-        const targetAmount = Number(newGoal.targetAmount);
-        const currentAmount = Number(newGoal.currentAmount);
-        const progressPercentage = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
-        
+        // Add progress percentage
+        const progressPercentage = newGoal.targetAmount > 0
+          ? (newGoal.currentAmount / newGoal.targetAmount) * 100
+          : 0;
+          
         const newGoalWithProgress = {
           ...newGoal,
-          targetAmount,
-          currentAmount,
           progressPercentage
         };
         
-        setGoals([...goals, newGoalWithProgress]);
-        toast.success('New goal created successfully');
+        // Update goals state
+        setGoals(prevGoals => [...prevGoals, newGoalWithProgress]);
+        
+        toast.success('Goal created successfully');
       }
       
+      // Refresh stats
+      if (user) {
+        try {
+          const statsData = await getGoalsStats(user);
+          setStats(statsData);
+        } catch (statsError) {
+          console.error('Error refreshing stats:', statsError);
+        }
+      }
+      
+      // Close modal
       setIsModalOpen(false);
       setSelectedGoal(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save goal:', err);
-      toast.error('Could not save your goal');
+      // Provide more specific error messages based on the error type
+      if (err.response && err.response.data && err.response.data.message) {
+        toast.error(`Failed to save goal: ${err.response.data.message}`);
+      } else {
+        toast.error('Failed to save goal. Please check your inputs and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -282,50 +354,49 @@ const FinancialGoals = () => {
         </div>
       </div>
 
-      {/* Summary Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <div className="bg-white shadow-md rounded-lg p-6 border-l-4 border-blue-500">
-          <p className="text-sm text-gray-500">Total Goals</p>
-          <p className="text-2xl font-bold">{goals.length}</p>
-          <div className="flex justify-between text-xs text-gray-500 mt-2">
-            <span>{goals.filter(g => g.status === 'in progress').length} in progress</span>
-            <span>{goals.filter(g => g.status === 'achieved').length} achieved</span>
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="bg-white shadow-md rounded-lg p-6 border-l-4 border-blue-500">
+            <p className="text-sm text-gray-500">Total Goals</p>
+            <p className="text-2xl font-bold">{stats.totalGoals}</p>
+            <div className="flex justify-between text-xs text-gray-500 mt-2">
+              <span>{stats.inProgressGoals} in progress</span>
+              <span>{stats.completedGoals} achieved</span>
+            </div>
+          </div>
+          
+          <div className="bg-white shadow-md rounded-lg p-6 border-l-4 border-green-500">
+            <p className="text-sm text-gray-500">Total Savings Target</p>
+            <p className="text-2xl font-bold">
+              {formatCurrency(stats.totalTargetAmount)}
+            </p>
+            <div className="text-xs text-gray-500 mt-2">
+              Across all goals
+            </div>
+          </div>
+          
+          <div className="bg-white shadow-md rounded-lg p-6 border-l-4 border-purple-500">
+            <p className="text-sm text-gray-500">Current Savings</p>
+            <p className="text-2xl font-bold">
+              {formatCurrency(stats.totalSaved)}
+            </p>
+            <div className="text-xs text-gray-500 mt-2">
+              {stats.averageProgress.toFixed(1)}% of total target
+            </div>
+          </div>
+          
+          <div className="bg-white shadow-md rounded-lg p-6 border-l-4 border-yellow-500">
+            <p className="text-sm text-gray-500">Remaining to Save</p>
+            <p className="text-2xl font-bold">
+              {formatCurrency(stats.totalTargetAmount - stats.totalSaved)}
+            </p>
+            <div className="text-xs text-gray-500 mt-2">
+              Across all goals
+            </div>
           </div>
         </div>
-        
-        <div className="bg-white shadow-md rounded-lg p-6 border-l-4 border-green-500">
-          <p className="text-sm text-gray-500">Total Savings Target</p>
-          <p className="text-2xl font-bold">
-            {formatCurrency(goals.reduce((sum, goal) => sum + goal.targetAmount, 0))}
-          </p>
-          <div className="text-xs text-gray-500 mt-2">
-            Across all goals
-          </div>
-        </div>
-        
-        <div className="bg-white shadow-md rounded-lg p-6 border-l-4 border-purple-500">
-          <p className="text-sm text-gray-500">Current Savings</p>
-          <p className="text-2xl font-bold">
-            {formatCurrency(goals.reduce((sum, goal) => sum + goal.currentAmount, 0))}
-          </p>
-          <div className="text-xs text-gray-500 mt-2">
-            {((goals.reduce((sum, goal) => sum + goal.currentAmount, 0) / goals.reduce((sum, goal) => sum + goal.targetAmount, 0)) * 100).toFixed(1)}% of total target
-          </div>
-        </div>
-        
-        <div className="bg-white shadow-md rounded-lg p-6 border-l-4 border-yellow-500">
-          <p className="text-sm text-gray-500">Remaining to Save</p>
-          <p className="text-2xl font-bold">
-            {formatCurrency(
-              goals.reduce((sum, goal) => sum + goal.targetAmount, 0) - 
-              goals.reduce((sum, goal) => sum + goal.currentAmount, 0)
-            )}
-          </p>
-          <div className="text-xs text-gray-500 mt-2">
-            Across all goals
-          </div>
-        </div>
-      </div>
+      )}
 
       <div className="bg-white shadow-md rounded-lg p-6 mb-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">

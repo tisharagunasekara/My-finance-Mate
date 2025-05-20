@@ -8,25 +8,49 @@ export const createGoal = async (req: Request, res: Response): Promise<void> => 
     const { userId, goalName, targetAmount, currentAmount, deadline, status, notes } = req.body;
     
     // Validate required fields
-    if (!userId || !goalName || !targetAmount || !deadline) {
+    if (!userId || !goalName || targetAmount === undefined || currentAmount === undefined || !deadline) {
       res.status(400).json({ message: 'Missing required fields' });
       return;
     }
     
-    // Validate amounts are numeric
-    if (isNaN(Number(targetAmount)) || isNaN(Number(currentAmount))) {
-      res.status(400).json({ message: 'Target amount and current amount must be numbers' });
+    // Validate amounts are numeric and convert them
+    const parsedTargetAmount = Number(targetAmount);
+    const parsedCurrentAmount = Number(currentAmount);
+    
+    if (isNaN(parsedTargetAmount) || isNaN(parsedCurrentAmount)) {
+      res.status(400).json({ 
+        message: 'Target amount and current amount must be valid numbers',
+        receivedTarget: targetAmount,
+        receivedCurrent: currentAmount
+      });
       return;
     }
     
-    // Create the goal with numeric values
+    // Validate status based on progress (server-side validation)
+    let validatedStatus = status;
+    
+    // If current amount meets or exceeds target, status should be achieved
+    if (parsedCurrentAmount >= parsedTargetAmount && parsedTargetAmount > 0) {
+      validatedStatus = 'achieved';
+    } 
+    // If status is achieved but current amount is less than target, status should be in progress
+    else if (validatedStatus === 'achieved' && parsedCurrentAmount < parsedTargetAmount) {
+      validatedStatus = 'in progress';
+    }
+    
+    // Validate status is one of allowed values
+    if (!['in progress', 'achieved'].includes(validatedStatus)) {
+      validatedStatus = 'in progress'; // default to in progress for invalid statuses
+    }
+    
+    // Create the goal
     const goal = new Goal({
       userId,
       goalName,
-      targetAmount: Number(targetAmount),
-      currentAmount: Number(currentAmount),
+      targetAmount: parsedTargetAmount,
+      currentAmount: parsedCurrentAmount,
       deadline,
-      status,
+      status: validatedStatus,
       notes,
     });
 
@@ -44,13 +68,22 @@ export const getGoalsByUserId = async (req: Request, res: Response): Promise<voi
     const { userId } = req.params;
     
     // Validate userId
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      res.status(400).json({ message: 'Invalid user ID' });
+    if (!userId) {
+      res.status(400).json({ message: 'User ID is required' });
       return;
     }
     
+    // Find goals by userId
     const goals = await Goal.find({ userId });
-    res.json(goals);
+    
+    // Return goals with numeric values properly formatted
+    const formattedGoals = goals.map(goal => ({
+      ...goal.toObject(),
+      targetAmount: Number(goal.targetAmount),
+      currentAmount: Number(goal.currentAmount)
+    }));
+    
+    res.json(formattedGoals);
   } catch (error: any) {
     console.error('Error fetching goals:', error);
     res.status(500).json({ message: 'Error fetching goals', error: error.message });
@@ -60,23 +93,60 @@ export const getGoalsByUserId = async (req: Request, res: Response): Promise<voi
 // Update a goal
 export const updateGoal = async (req: Request, res: Response): Promise<void> => {
   try {
+    const { id } = req.params;
     const { goalName, targetAmount, currentAmount, deadline, status, notes } = req.body;
     
-    // Validate amounts are numeric
-    if (isNaN(Number(targetAmount)) || isNaN(Number(currentAmount))) {
-      res.status(400).json({ message: 'Target amount and current amount must be numbers' });
+    // Validate goal ID
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ message: 'Invalid goal ID' });
       return;
     }
     
-    // Find and update the goal with properly converted numeric values
+    // Validate required fields
+    if (!goalName || targetAmount === undefined || currentAmount === undefined || !deadline || !status) {
+      res.status(400).json({ message: 'Missing required fields' });
+      return;
+    }
+    
+    // Validate amounts are numeric and convert them
+    const parsedTargetAmount = Number(targetAmount);
+    const parsedCurrentAmount = Number(currentAmount);
+    
+    if (isNaN(parsedTargetAmount) || isNaN(parsedCurrentAmount)) {
+      res.status(400).json({ 
+        message: 'Target amount and current amount must be valid numbers',
+        receivedTarget: targetAmount,
+        receivedCurrent: currentAmount
+      });
+      return;
+    }
+    
+    // Validate status based on progress (server-side validation)
+    let validatedStatus = status;
+    
+    // If current amount meets or exceeds target, status should be achieved
+    if (parsedCurrentAmount >= parsedTargetAmount && parsedTargetAmount > 0) {
+      validatedStatus = 'achieved';
+    } 
+    // If status is achieved but current amount is less than target, status should be in progress
+    else if (validatedStatus === 'achieved' && parsedCurrentAmount < parsedTargetAmount) {
+      validatedStatus = 'in progress';
+    }
+    
+    // Validate status is one of allowed values
+    if (!['in progress', 'achieved'].includes(validatedStatus)) {
+      validatedStatus = 'in progress'; // default to in progress for invalid statuses
+    }
+    
+    // Find and update the goal
     const goal = await Goal.findByIdAndUpdate(
-      req.params.id,
+      id,
       {
         goalName,
-        targetAmount: Number(targetAmount),
-        currentAmount: Number(currentAmount),
+        targetAmount: parsedTargetAmount,
+        currentAmount: parsedCurrentAmount,
         deadline,
-        status,
+        status: validatedStatus,
         notes
       },
       { new: true, runValidators: true }
@@ -87,7 +157,14 @@ export const updateGoal = async (req: Request, res: Response): Promise<void> => 
       return;
     }
     
-    res.json(goal);
+    // Return updated goal with numeric values properly formatted
+    const formattedGoal = {
+      ...goal.toObject(),
+      targetAmount: Number(goal.targetAmount),
+      currentAmount: Number(goal.currentAmount)
+    };
+    
+    res.json(formattedGoal);
   } catch (error: any) {
     console.error('Error updating goal:', error);
     res.status(400).json({ message: 'Error updating goal', error: error.message });
@@ -97,12 +174,21 @@ export const updateGoal = async (req: Request, res: Response): Promise<void> => 
 // Delete a goal
 export const deleteGoal = async (req: Request, res: Response): Promise<void> => {
   try {
-    const goal = await Goal.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+    
+    // Validate goal ID
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ message: 'Invalid goal ID' });
+      return;
+    }
+    
+    const goal = await Goal.findByIdAndDelete(id);
     if (!goal) {
       res.status(404).json({ message: 'Goal not found' });
       return;
     }
-    res.json({ message: 'Goal deleted successfully' });
+    
+    res.json({ message: 'Goal deleted successfully', id });
   } catch (error: any) {
     console.error('Error deleting goal:', error);
     res.status(400).json({ message: 'Error deleting goal', error: error.message });

@@ -1,25 +1,72 @@
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 
-interface FinancialGoalForm {
+interface Goal {
+  _id?: string;
   goalName: string;
   targetAmount: number;
   currentAmount: number;
   deadline: string;
   status: string;
   notes?: string;
-  onClose: () => void; 
-  onSave: (data: FinancialGoalForm) => void; 
 }
 
-const FinancialGoalModal = ({ onClose, onSave }: FinancialGoalForm) => {
+interface FinancialGoalModalProps {
+  onClose: () => void;
+  onSave: (data: Goal) => void;
+  initialData?: Goal | null;
+}
+
+const FinancialGoalModal = ({ onClose, onSave, initialData }: FinancialGoalModalProps) => {
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
-  } = useForm<FinancialGoalForm>();
+  } = useForm<Goal>({
+    defaultValues: {
+      goalName: '',
+      targetAmount: 0,
+      currentAmount: 0,
+      deadline: new Date().toISOString().split('T')[0],
+      status: 'in progress',
+      notes: ''
+    }
+  });
 
-  const onSubmit = (data: FinancialGoalForm) => {
+  useEffect(() => {
+    if (initialData) {
+      // Format date properly for date input (YYYY-MM-DD)
+      let formattedDate;
+      try {
+        // Handle potential invalid date strings
+        const dateObj = new Date(initialData.deadline);
+        // Check if date is valid
+        if (!isNaN(dateObj.getTime())) {
+          formattedDate = dateObj.toISOString().split('T')[0];
+        } else {
+          // Fallback to current date if invalid
+          formattedDate = new Date().toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.error("Error parsing date:", error);
+        // Fallback to current date if error
+        formattedDate = new Date().toISOString().split('T')[0];
+      }
+
+      // Reset form with properly parsed values
+      reset({
+        goalName: initialData.goalName,
+        targetAmount: Number(initialData.targetAmount),
+        currentAmount: Number(initialData.currentAmount),
+        deadline: formattedDate,
+        status: initialData.status,
+        notes: initialData.notes || '',
+      });
+    }
+  }, [initialData, reset]);
+
+  const onSubmit = (data: Goal) => {
     onSave(data); // Call parent function to save data
     reset();
     onClose(); // Close modal after saving
